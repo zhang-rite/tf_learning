@@ -12,6 +12,9 @@ import runet as vae_util
 # In[ ]:
 
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
+# tf.config.run_functions_eagerly(False)
+
 import numpy as np
 from tensorflow.keras import backend as K
 from tensorflow.keras import layers
@@ -20,14 +23,13 @@ from tensorflow.keras.optimizers import Adam
 # from tensorflow.python.keras.optimizers import Adam
 
 import h5py
-
+print(tf.__version__)
 
 # In[6]:
 
 
 input_shape = (128, 128, 3)
-vae_model = vae_util.create_vae(input_shape)
-vae_model.summary()
+
 
 
 # # 2. Load data
@@ -35,6 +37,7 @@ vae_model.summary()
 # In[ ]:
 
 
+# 
 data_dir = './data_dir/'
 hf_r = h5py.File(data_dir + 'train_200000.hdf5', 'r')
 train_x = np.array(hf_r.get('k'))
@@ -104,9 +107,14 @@ opt = Adam(lr = learning_rate)
 train_target = K.placeholder(shape=(batch_size, 128, 128, 1))
 test_target = K.placeholder(shape=(test_nr, 128, 128, 1))
 
-rec_loss = vae_loss(vae_model.output, train_target)
-vae_model.compile(optimizer=opt, loss='mse')
 
+
+strategy = tf.distribute.MirroredStrategy()
+print("Number of devices: {}".format(strategy.num_replicas_in_sync))
+# with strategy.scope():
+vae_model = vae_util.create_vae(input_shape)
+vae_model.compile(optimizer=opt, loss='mse')
+rec_loss = vae_loss(vae_model.output, train_target)
 total_loss = rec_loss
 
 updates = opt.get_updates(total_loss, vae_model.trainable_weights)
@@ -143,7 +151,7 @@ for e in range(epoch):
 vae_model.save_weights(output_dir +  'trained_model_ep%d.h5' % ((e+1)))
 
 
-
+# In[ ]:
 
 
 
